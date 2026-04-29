@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  VoiceFlow IME layout. Single large mic button centred in the keyboard area.
+  Replace with full keyboard chrome (settings cog, language switch) in Phase 6.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="220dp"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="#0B0B0E">
+
+  <TextView
+      android:id="@+id/mic_button"
+      android:layout_width="96dp"
+      android:layout_height="96dp"
+      android:gravity="center"
+      android:textSize="36sp"
+      android:textColor="#ffffff"
+      android:background="@android:color/holo_purple"
+      android:text="●" />
+
+  <TextView
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="12dp"
+      android:textColor="#bbbbbb"
+      android:textSize="13sp"
+      android:text="Tap to dictate" />
+
+</LinearLayout>

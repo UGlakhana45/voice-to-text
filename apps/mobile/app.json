@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "VoiceFlow",
+    "slug": "voiceflow",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b0d12"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.udaylakhana.voiceflow",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "VoiceFlow uses the microphone to transcribe your speech on-device.",
+        "NSSpeechRecognitionUsageDescription": "VoiceFlow performs speech recognition on-device."
+      }
+    },
+    "android": {
+      "package": "com.udaylakhana.voiceflow",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0b0d12"
+      },
+      "permissions": [
+        "RECORD_AUDIO",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MICROPHONE",
+        "POST_NOTIFICATIONS",
+        "SYSTEM_ALERT_WINDOW",
+        "BIND_INPUT_METHOD"
+      ]
+    },
+    "plugins": [["expo-av", { "microphonePermission": "Allow VoiceFlow to access the microphone." }]],
+    "extra": {
+      "eas": { "projectId": "TBD" }
+    }
+  }
+}

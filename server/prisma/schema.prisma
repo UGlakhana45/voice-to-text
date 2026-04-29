@@ -1,0 +1,95 @@
+// Prisma schema for VoiceFlow backend
+// Run: pnpm --filter server prisma:migrate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions     Session[]
+  dictations   Dictation[]
+  vocabItems   VocabItem[]
+  snippets     Snippet[]
+  settings     UserSettings?
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshHash  String
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model UserSettings {
+  userId            String   @id
+  preferredLanguage String   @default("auto")
+  defaultTone       String   @default("neutral")
+  modelSize         String   @default("base")
+  cleanupEnabled    Boolean  @default(true)
+  themeMode         String   @default("system")
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Dictation {
+  id          String   @id @default(cuid())
+  userId      String
+  rawText     String
+  cleanedText String?
+  language    String?
+  durationMs  Int
+  audioKey    String?  // S3 object key, optional encrypted backup
+  tone        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model VocabItem {
+  id        String   @id @default(cuid())
+  userId    String
+  term      String
+  weight    Float    @default(1.0)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, term])
+}
+
+model Snippet {
+  id        String   @id @default(cuid())
+  userId    String
+  trigger   String
+  expansion String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, trigger])
+}
