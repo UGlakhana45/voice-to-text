@@ -37,6 +37,11 @@ export const DEFAULT_MODELS: Record<ModelKind, ModelDescriptor> = {
 
 const MODELS_DIR = `${FileSystem.documentDirectory}models/`;
 
+function toNativeFsPath(uri: string): string {
+  // Native whisper/llama loaders expect an absolute filesystem path, not a URI.
+  return decodeURIComponent(uri.replace(/^file:\/\//, ''));
+}
+
 async function ensureDir() {
   const info = await FileSystem.getInfoAsync(MODELS_DIR);
   if (!info.exists) await FileSystem.makeDirectoryAsync(MODELS_DIR, { intermediates: true });
@@ -78,14 +83,14 @@ export async function downloadModel(
 
 export async function ensureWhisperLoaded() {
   if (await Whisper.isLoaded()) return;
-  const path = await downloadModel('whisper');
-  await Whisper.loadModel(path);
+  const uri = await downloadModel('whisper');
+  await Whisper.loadModel(toNativeFsPath(uri));
 }
 
 export async function ensureLlmLoaded() {
   if (await Llm.isLoaded()) return;
-  const path = await downloadModel('llm');
-  await Llm.loadModel(path);
+  const uri = await downloadModel('llm');
+  await Llm.loadModel(toNativeFsPath(uri));
 }
 
 export async function deleteModel(kind: ModelKind): Promise<void> {

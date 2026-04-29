@@ -12,6 +12,6 @@ export interface AudioChunk {
   durationMs: number;
 }
 
-export * from './ringBuffer.js';
-export * from './vad.js';
-export * from './chunker.js';
+export * from './ringBuffer';
+export * from './vad';
+export * from './chunker';

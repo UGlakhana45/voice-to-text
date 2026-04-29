@@ -4,7 +4,7 @@ import { useDictation } from '../features/dictation/useDictation';
 import { theme } from '../theme';
 
 export function HomeScreen() {
-  const { state, transcript, cleaned, start, stop, polish } = useDictation();
+  const { state, transcript, cleaned, errorMessage, start, stop, polish } = useDictation();
   const [showCleaned, setShowCleaned] = useState(false);
 
   const onPressMic = useCallback(() => {
@@ -39,6 +39,7 @@ export function HomeScreen() {
       </ScrollView>
 
       <View style={styles.controls}>
+        {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
         {transcript ? (
           <Pressable
             style={styles.secondary}
@@ -84,6 +85,12 @@ const styles = StyleSheet.create({
   micActive: { backgroundColor: theme.colors.danger },
   micText: { color: 'white', fontSize: 36, fontWeight: '700' },
   hint: { color: theme.colors.textDim, fontSize: 14 },
+  error: {
+    color: theme.colors.danger,
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
   secondary: {
     paddingVertical: 10,
     paddingHorizontal: 20,

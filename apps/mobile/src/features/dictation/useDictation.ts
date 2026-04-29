@@ -17,6 +17,7 @@ import { useSettingsStore } from '../settings/useSettings';
 import { userDataActions } from '../userdata/useUserData';
 import { enqueueDictation } from '../../services/outbox';
 import { track } from '../../services/telemetry';
+import { ensureLlmLoaded, ensureWhisperLoaded } from '../../services/models';
 
 export type DictationState = 'idle' | 'recording' | 'transcribing' | 'cleaning' | 'error';
 
@@ -55,12 +56,21 @@ let frameSub: { remove: () => void } | null = null;
 let recordStartedAt = 0;
 
 export function useDictation() {
-  const { state, transcript, cleaned, errorMessage, setState, setTranscript, setCleaned, setError } =
-    useStore();
+  const {
+    state,
+    transcript,
+    cleaned,
+    errorMessage,
+    setState,
+    setTranscript,
+    setCleaned,
+    setError,
+  } = useStore();
 
   const start = useCallback(async () => {
     try {
       useStore.getState().reset();
+      await ensureWhisperLoaded();
       setState('recording');
       chunker = new Chunker();
 
@@ -96,6 +106,7 @@ export function useDictation() {
       frameSub = null;
 
       setState('transcribing');
+      await ensureWhisperLoaded();
       const initialPrompt = buildInitialPrompt(userDataActions.hotwords());
       if (chunker) {
         const final = chunker.flush();
@@ -153,6 +164,7 @@ export function useDictation() {
     let out: string;
     try {
       setState('cleaning');
+      await ensureLlmLoaded();
       out = await Llm.cleanup(raw, { tone });
     } catch {
       // graceful fallback: filler-word strip + punctuation only

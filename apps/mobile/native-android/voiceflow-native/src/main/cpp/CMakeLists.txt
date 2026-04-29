@@ -13,18 +13,18 @@ set(NATIVE_ROOT "${CMAKE_SOURCE_DIR}/../../../../../native")
 set(WHISPER_DIR "${NATIVE_ROOT}/whisper.cpp")
 set(LLAMA_DIR   "${NATIVE_ROOT}/llama.cpp")
 
-# whisper.cpp
-if(EXISTS "${WHISPER_DIR}/CMakeLists.txt")
-    add_subdirectory(${WHISPER_DIR} whisper_build EXCLUDE_FROM_ALL)
-else()
-    message(WARNING "whisper.cpp not vendored at ${WHISPER_DIR} — run scripts/vendor-cpp.sh")
-endif()
-
-# llama.cpp
+# llama.cpp first (it has newer ggml that whisper.cpp can use)
 if(EXISTS "${LLAMA_DIR}/CMakeLists.txt")
     add_subdirectory(${LLAMA_DIR} llama_build EXCLUDE_FROM_ALL)
 else()
     message(WARNING "llama.cpp not vendored at ${LLAMA_DIR} — run scripts/vendor-cpp.sh")
+endif()
+
+# whisper.cpp (will use llama.cpp's ggml if compatible)
+if(EXISTS "${WHISPER_DIR}/CMakeLists.txt")
+    add_subdirectory(${WHISPER_DIR} whisper_build EXCLUDE_FROM_ALL)
+else()
+    message(WARNING "whisper.cpp not vendored at ${WHISPER_DIR} — run scripts/vendor-cpp.sh")
 endif()
 
 add_library(voiceflow_native SHARED

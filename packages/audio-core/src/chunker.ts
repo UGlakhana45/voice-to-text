@@ -1,5 +1,5 @@
-import { SAMPLE_RATE, type AudioChunk } from './index.js';
-import { EnergyVad } from './vad.js';
+import { SAMPLE_RATE, type AudioChunk } from './index';
+import { EnergyVad } from './vad';
 
 export interface ChunkerOptions {
   /** Target chunk length in ms when speaking continuously */

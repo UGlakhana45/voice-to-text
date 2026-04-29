@@ -10,6 +10,7 @@ namespace voiceflow {
 struct LlmEngine::Impl {
     llama_model* model = nullptr;
     llama_context* ctx = nullptr;
+    const llama_vocab* vocab = nullptr;
     std::mutex mu;
 };
 
@@ -28,13 +29,15 @@ static std::string tone_instruction(const std::string& tone) {
 bool LlmEngine::load(const std::string& model_path) {
     std::lock_guard<std::mutex> lk(impl_->mu);
     if (impl_->ctx) llama_free(impl_->ctx);
-    if (impl_->model) llama_free_model(impl_->model);
+    if (impl_->model) { llama_free_model(impl_->model); impl_->vocab = nullptr; }
 
     llama_backend_init();
 
     llama_model_params mparams = llama_model_default_params();
     impl_->model = llama_load_model_from_file(model_path.c_str(), mparams);
     if (!impl_->model) return false;
+
+    impl_->vocab = llama_model_get_vocab(impl_->model);
 
     llama_context_params cparams = llama_context_default_params();
     cparams.n_ctx = 2048;
@@ -47,6 +50,7 @@ void LlmEngine::unload() {
     std::lock_guard<std::mutex> lk(impl_->mu);
     if (impl_->ctx) { llama_free(impl_->ctx); impl_->ctx = nullptr; }
     if (impl_->model) { llama_free_model(impl_->model); impl_->model = nullptr; }
+    impl_->vocab = nullptr;
     llama_backend_free();
 }
 
@@ -56,7 +60,7 @@ bool LlmEngine::is_loaded() const {
 
 std::string LlmEngine::cleanup(const std::string& raw_text, const LlmOptions& opts) {
     std::lock_guard<std::mutex> lk(impl_->mu);
-    if (!impl_->ctx) return raw_text;
+    if (!impl_->ctx || !impl_->vocab) return raw_text;
 
     std::ostringstream prompt;
     prompt << "<start_of_turn>user\n"
@@ -67,20 +71,18 @@ std::string LlmEngine::cleanup(const std::string& raw_text, const LlmOptions& op
 
     std::string p = prompt.str();
     std::vector<llama_token> tokens(p.size() + 16);
-    int n = llama_tokenize(impl_->model, p.c_str(), (int)p.size(),
+    int n = llama_tokenize(impl_->vocab, p.c_str(), (int)p.size(),
                            tokens.data(), (int)tokens.size(), true, true);
     if (n < 0) return raw_text;
     tokens.resize(n);
 
-    llama_kv_cache_clear(impl_->ctx);
-    llama_batch batch = llama_batch_get_one(tokens.data(), (int)tokens.size(), 0, 0);
+    llama_batch batch = llama_batch_get_one(tokens.data(), (int)tokens.size());
     if (llama_decode(impl_->ctx, batch) != 0) return raw_text;
 
     std::string out;
-    int n_cur = (int)tokens.size();
     for (int i = 0; i < opts.max_tokens; ++i) {
         const float* logits = llama_get_logits_ith(impl_->ctx, -1);
-        const int n_vocab = llama_n_vocab(impl_->model);
+        const int n_vocab = llama_vocab_n_tokens(impl_->vocab);
 
         // Greedy argmax (low-budget; replace with proper sampling later)
         int best = 0; float best_v = logits[0];
@@ -88,15 +90,14 @@ std::string LlmEngine::cleanup(const std::string& raw_text, const LlmOptions& op
             if (logits[v] > best_v) { best_v = logits[v]; best = v; }
         }
         llama_token tok = (llama_token)best;
-        if (llama_token_is_eog(impl_->model, tok)) break;
+        if (llama_vocab_is_eog(impl_->vocab, tok)) break;
 
         char piece[256];
-        int np = llama_token_to_piece(impl_->model, tok, piece, sizeof(piece), 0, true);
+        int np = llama_token_to_piece(impl_->vocab, tok, piece, sizeof(piece), 0, true);
         if (np > 0) out.append(piece, np);
 
-        llama_batch nb = llama_batch_get_one(&tok, 1, n_cur, 0);
+        llama_batch nb = llama_batch_get_one(&tok, 1);
         if (llama_decode(impl_->ctx, nb) != 0) break;
-        n_cur++;
     }
 
     return out;
