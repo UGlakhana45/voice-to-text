@@ -61,7 +61,13 @@ export function HomeScreen() {
         </Pressable>
 
         <Text style={styles.hint}>
-          {isRecording ? 'Recording…' : state === 'transcribing' ? 'Transcribing…' : 'Tap to dictate'}
+          {isRecording
+            ? 'Listening… (auto-stops after 3s of silence)'
+            : state === 'transcribing'
+              ? 'Transcribing…'
+              : state === 'cleaning'
+                ? 'Polishing…'
+                : 'Tap to dictate'}
         </Text>
       </View>
     </View>

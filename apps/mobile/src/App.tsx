@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -50,16 +51,48 @@ function MainTabs() {
   return (
     <NavigationContainer theme={theme.navigation}>
       <Tabs.Navigator
-          screenOptions={{
-            headerStyle: { backgroundColor: theme.colors.bg },
-            headerTintColor: theme.colors.text,
-            tabBarStyle: { backgroundColor: theme.colors.bg, borderTopColor: theme.colors.border },
-            tabBarActiveTintColor: theme.colors.accent,
+        screenOptions={{
+          headerStyle: { backgroundColor: theme.colors.bg },
+          headerTintColor: theme.colors.text,
+          tabBarStyle: {
+            backgroundColor: theme.colors.bg,
+            borderTopColor: theme.colors.border,
+            height: 64,
+            paddingTop: 6,
+            paddingBottom: 8,
+          },
+          tabBarActiveTintColor: theme.colors.accent,
+          tabBarInactiveTintColor: theme.colors.textDim,
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+        }}
+      >
+        <Tabs.Screen
+          name="Dictate"
+          component={HomeScreen}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <Text style={{ fontSize: 22, color }}>🎙️</Text>
+            ),
           }}
-        >
-        <Tabs.Screen name="Dictate" component={HomeScreen} />
-        <Tabs.Screen name="History" component={HistoryScreen} />
-        <Tabs.Screen name="Settings" component={SettingsScreen} />
+        />
+        <Tabs.Screen
+          name="History"
+          component={HistoryScreen}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <Text style={{ fontSize: 22, color }}>📝</Text>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            tabBarIcon: ({ color }) => (
+              <Text style={{ fontSize: 22, color }}>⚙️</Text>
+            ),
+          }}
+        />
       </Tabs.Navigator>
     </NavigationContainer>
   );

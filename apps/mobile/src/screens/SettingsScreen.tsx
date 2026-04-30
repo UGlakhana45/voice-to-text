@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Switch, Pressable, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Switch, Pressable, Alert, TextInput } from 'react-native';
 import { theme } from '../theme';
 import { useSettings } from '../features/settings/useSettings';
 import { api, useAuth } from '../services/auth';
 import { TONES } from 'voiceflow-postprocess';
 import type { ToneMode } from 'voiceflow-shared-types';
 import { ModelManagerScreen } from './ModelManagerScreen';
+import { cloudStt, type CloudProvider } from '../services/cloudStt';
 
 export function SettingsScreen() {
   const [view, setView] = useState<'root' | 'models'>('root');
@@ -13,6 +14,17 @@ export function SettingsScreen() {
   const user = useAuth((s) => s.user);
   const refreshToken = useAuth((s) => s.refreshToken);
   const clearAuth = useAuth((s) => s.clear);
+
+  const [cloudEnabled, setCloudEnabled] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [provider, setProvider] = useState<CloudProvider>('openai');
+
+  useEffect(() => {
+    cloudStt.isCloudEnabled().then(setCloudEnabled);
+    cloudStt.getApiKey().then((k) => setApiKey(k ?? ''));
+    cloudStt.getProvider().then(setProvider);
+  }, []);
 
   if (view === 'models') {
     return (
@@ -53,6 +65,59 @@ export function SettingsScreen() {
       )}
 
       <Section title="Transcription">
+        <ToggleRow
+          label="Use OpenAI Cloud (better accuracy)"
+          value={cloudEnabled}
+          onChange={async (v) => {
+            await cloudStt.setCloudEnabled(v);
+            setCloudEnabled(v);
+          }}
+        />
+        {cloudEnabled && (
+          <>
+            <PickerRow
+              label="Provider"
+              value={provider}
+              options={['openai', 'groq']}
+              onChange={async (v) => {
+                await cloudStt.setProvider(v as CloudProvider);
+                setProvider(v as CloudProvider);
+              }}
+            />
+          <View style={[styles.row, { flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingVertical: 12 }]}>
+            <Text style={styles.rowLabel}>{provider === 'groq' ? 'Groq API Key (free)' : 'OpenAI API Key'}</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                style={apiKeyStyles.input}
+                value={apiKey}
+                onChangeText={setApiKey}
+                placeholder="sk-..."
+                placeholderTextColor={theme.colors.textDim}
+                secureTextEntry={!showKey}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Pressable onPress={() => setShowKey(!showKey)} style={apiKeyStyles.eye}>
+                <Text style={{ color: theme.colors.accent }}>{showKey ? '🙈' : '👁️'}</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              onPress={async () => {
+                await cloudStt.setApiKey(apiKey.trim());
+                Alert.alert('Saved', 'API key saved securely');
+              }}
+              style={apiKeyStyles.saveBtn}
+            >
+              <Text style={apiKeyStyles.saveText}>Save API Key</Text>
+            </Pressable>
+            <Text style={{ color: theme.colors.textDim, fontSize: 12, marginTop: 4 }}>
+              {provider === 'groq'
+                ? 'Get a FREE Groq key at console.groq.com/keys'
+                : 'Get an OpenAI key at platform.openai.com/api-keys'}
+            </Text>
+          </View>
+          </>
+        )}
         <Row label="Model size" value={settings.modelSize} />
         <Row label="Language" value={settings.preferredLanguage} />
       </Section>
@@ -196,6 +261,39 @@ function ToggleRow({
     </View>
   );
 }
+
+const apiKeyStyles = StyleSheet.create({
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: theme.colors.text,
+    fontSize: 14,
+    backgroundColor: theme.colors.surface,
+  },
+  eye: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveBtn: {
+    backgroundColor: theme.colors.accent,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  saveText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.bg },
