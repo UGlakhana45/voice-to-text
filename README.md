@@ -1,92 +1,173 @@
-# VoiceFlow
+<div align="center">
 
-On-device speech-to-text + AI cleanup, system-wide dictation for Android & iOS. Built on open-source Whisper (`whisper.cpp`) and a small on-device LLM (Gemma-2B / Phi-3-mini via `llama.cpp`). Backed by a Fastify + Postgres backend that runs entirely on a zero-signup local Docker stack for the demo.
+# 🎙️ VoiceFlow
 
-> Status: **Phase 0 — scaffolding**. Native modules (Kotlin JNI for whisper.cpp, Swift bridge for iOS) and the Expo bare projects are stubbed and require additional setup steps documented below.
+**Privacy-first, offline-capable speech-to-text with optional cloud accuracy.**
+
+On-device Whisper transcription, optional Groq / OpenAI cloud STT, voice-activity auto-stop, AI-powered cleanup, and system-wide dictation for Android.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS-lightgrey)](#)
+[![React Native](https://img.shields.io/badge/React%20Native-0.74-61dafb)](#)
+
+</div>
 
 ---
 
-## Repository layout
+## ✨ Features
+
+- 🎤 **Push-to-talk dictation** with auto-stop after 3 s of silence
+- 🧠 **On-device Whisper** (`whisper.cpp`) — works fully offline, no data leaves the phone
+- ☁️ **Optional cloud STT** — Groq (free, fast) or OpenAI Whisper (paid, accurate) for higher-quality transcription
+- ✍️ **AI cleanup** — local Gemma-2B / Phi-3-mini via `llama.cpp` for punctuation, grammar and tone polish
+- 🗂️ **History sync** — Fastify + PostgreSQL backend with offline outbox
+- 🔐 **Secure storage** — API keys kept in the OS keystore via `expo-secure-store`
+- ⌨️ **System keyboard (Android)** — dictate into any app
+
+## 🏗️ Architecture
 
 ```
 voice-to-text/
-├── apps/
-│   └── mobile/              # React Native (Expo bare) — Android + iOS
-├── server/                  # Fastify + node-postgres backend
+├── apps/mobile/                 # React Native (Expo bare) Android + iOS
+│   ├── src/                     # TS source (screens, features, services)
+│   ├── android/                 # Native Android + vendored whisper.cpp/llama.cpp
+│   └── ios/                     # Native iOS bridges
+├── server/                      # Fastify + Prisma + PostgreSQL backend
 ├── packages/
-│   ├── shared-types/        # API contracts shared between mobile + server
-│   ├── audio-core/          # VAD, ring buffer, chunker (TS)
-│   ├── postprocess/         # punctuation, hotwords, command parser
-│   └── sdk-client/          # typed API client used by mobile + web
-├── docs/                    # architecture + platform notes
-├── docker-compose.yml       # postgres, redis, minio, mailhog
-├── .env.example
-└── README.md
+│   ├── shared-types/            # API contracts
+│   ├── audio-core/              # VAD, ring buffer, chunker
+│   ├── postprocess/             # Punctuation, hotwords, voice commands
+│   └── sdk-client/              # Typed API client
+├── docs/                        # Architecture & platform notes
+├── docker-compose.yml           # Local Postgres + Redis + MinIO
+└── LICENSE                      # MIT
 ```
 
-## Prerequisites
+## 🛠️ Prerequisites
 
-- **Node** ≥ 20.10
-- **pnpm** ≥ 9 (`npm i -g pnpm`)
-- **Docker** + **Docker Compose**
-- **Android**: Android Studio + JDK 17 + an emulator or device
-- **iOS** (macOS only): Xcode 15+ + CocoaPods
-- ~10 GB free disk space (for whisper + LLM models, downloaded on first app launch)
+| Tool             | Version    |
+|------------------|------------|
+| Node.js          | ≥ 20.10    |
+| pnpm             | ≥ 9        |
+| Docker + Compose | latest     |
+| Android Studio   | + JDK 17   |
+| Xcode (iOS only) | 15+ + CocoaPods |
+| Free disk        | ~10 GB (for Whisper + LLM models) |
 
-## First-time setup
+## 🚀 Quick start
 
 ```bash
-# 1. install dependencies
+# 1. Install workspace dependencies
 pnpm install
 
-# 2. copy env defaults
+# 2. Copy environment defaults
 cp .env.example .env
 
-# 3. start the local stack (postgres + redis + minio + mailhog)
+# 3. Boot the local stack (Postgres + Redis + MinIO + Mailhog)
 pnpm stack:up
 
-# 4. run database migrations
+# 4. Apply database migrations
 pnpm --filter server migrate
 
-# 5. start everything in dev
+# 5. Start everything in dev mode
 pnpm dev
 ```
 
-This runs:
-- Backend: <http://localhost:4000>
-- Mailhog UI: <http://localhost:8025>
-- MinIO console: <http://localhost:9001> (login: `minioadmin` / `minioadmin`)
+Local services:
 
-## Mobile app
+| Service        | URL                                   |
+|----------------|---------------------------------------|
+| Backend API    | <http://localhost:4000>               |
+| Mailhog UI     | <http://localhost:8025>               |
+| MinIO console  | <http://localhost:9001> *(`minioadmin` / `minioadmin`)* |
+
+## 📱 Run the mobile app
 
 ```bash
-# Android
+# Android (device or emulator)
 pnpm --filter mobile android
 
-# iOS (macOS only — first time only: cd apps/mobile/ios && pod install)
+# iOS (macOS only — first time: cd apps/mobile/ios && pod install)
 pnpm --filter mobile ios
 ```
 
-The first launch downloads a quantized Whisper `base` model (~140 MB) and the Gemma-2B Q4 model (~1.5 GB) into the app's private storage. You can skip the LLM and use punctuation-only cleanup.
+The first launch downloads a quantized Whisper `base` model (~140 MB) and an optional Gemma-2B Q4 model (~1.5 GB) into the app's private storage. You can skip the LLM and use punctuation-only cleanup.
 
-## Demo definition
+## ☁️ Cloud transcription (optional)
 
-See [`docs/ROADMAP.md`](./docs/ROADMAP.md). The Phase-1 demo target:
+Switch from on-device Whisper to a cloud provider for higher accuracy:
 
-1. Mic button → push-to-talk → live transcript via on-device Whisper
-2. "Polish" → on-device LLM cleanup with diff view
-3. History tab with replay
-4. Sign up / log in → settings sync to local Postgres
-5. Custom keyboard (Android) → dictate into any app
+1. Open **Settings → Use OpenAI Cloud**
+2. Pick a provider:
+   - **Groq** — free tier, very fast (`whisper-large-v3-turbo`). Get a key at <https://console.groq.com/keys>.
+   - **OpenAI** — paid (`whisper-1`). Get a key at <https://platform.openai.com/api-keys>.
+3. Paste your API key → **Save**
+4. Tap the mic and speak — the audio is uploaded directly from device to the chosen provider.
 
-## Architecture
+Keys are persisted in the OS keystore. If a cloud call fails (network / quota), the app transparently falls back to on-device Whisper.
 
-See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md), [`docs/ANDROID_KEYBOARD.md`](./docs/ANDROID_KEYBOARD.md), and [`docs/IOS_LIMITS.md`](./docs/IOS_LIMITS.md).
+## ⌨️ Voice commands
 
-## Licensing
+While dictating, the post-processor recognises spoken commands such as:
 
-- Application code: MIT (this repo)
-- Whisper: MIT (OpenAI)
-- whisper.cpp / llama.cpp: MIT (Georgi Gerganov)
-- Gemma: Gemma Terms of Use (commercial allowed)
-- Phi-3: MIT
+- *"new line"*, *"new paragraph"*
+- *"comma"*, *"period"*, *"question mark"*
+- *"all caps <word>"*
+
+See [`packages/postprocess`](./packages/postprocess) for the full grammar.
+
+## 🧪 Testing
+
+```bash
+pnpm -r test          # all packages
+pnpm --filter server test
+pnpm --filter mobile typecheck
+```
+
+## 📦 Building a release APK
+
+```bash
+cd apps/mobile/android
+./gradlew :app:assembleRelease
+# Output: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+```
+
+## 🌐 Deployment
+
+The backend is a stateless Fastify app and runs on any Node-friendly host (Render, Fly.io, Railway, AWS, …) with a Postgres database.
+
+A typical Render setup:
+
+1. Push the repo to GitHub.
+2. Create a **PostgreSQL** instance on Render and copy the internal database URL.
+3. Create a **Web Service** pointing at the `server/` folder.
+   - **Build:** `pnpm install --ignore-workspace && pnpm prisma generate && pnpm build`
+   - **Start:** `pnpm start`
+   - **Env:** `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`
+4. Update `API_BASE_URL` in the mobile app and rebuild.
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome. Please:
+
+1. Fork the repo and create a feature branch.
+2. Run `pnpm -r typecheck && pnpm -r test` before pushing.
+3. Follow the existing code style (Prettier + ESLint).
+
+## 📄 License
+
+This project is released under the **MIT License** — see [`LICENSE`](./LICENSE).
+
+### Third-party components
+
+| Component           | License       | Notes                              |
+|---------------------|---------------|------------------------------------|
+| OpenAI Whisper      | MIT           | Speech-to-text model               |
+| `whisper.cpp`       | MIT           | C++ Whisper inference              |
+| `llama.cpp`         | MIT           | C++ LLM inference                  |
+| Google Gemma        | Gemma Terms   | Commercial use permitted           |
+| Microsoft Phi-3     | MIT           | Optional cleanup model             |
+
+## 🙏 Acknowledgements
+
+Built on the shoulders of giants — huge thanks to Georgi Gerganov, the OpenAI Whisper team, the React Native community, and everyone who has contributed to the open-source AI ecosystem.
