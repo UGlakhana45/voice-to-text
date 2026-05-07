@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
+		F11A0002B0DA000000000001 /* VoiceFlowAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11A0001B0DA000000000001 /* VoiceFlowAudio.swift */; };
+		F11A0004B0DA000000000001 /* VoiceFlowAudioBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = F11A0003B0DA000000000001 /* VoiceFlowAudioBridge.m */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
@@ -20,6 +22,8 @@
 
 /* Begin PBXFileReference section */
 		07E3F788C90544458F00BE05 /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "VoiceFlow/noop-file.swift"; sourceTree = "<group>"; };
+		F11A0001B0DA000000000001 /* VoiceFlowAudio.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = VoiceFlowAudio.swift; path = VoiceFlow/VoiceFlowAudio.swift; sourceTree = "<group>"; };
+		F11A0003B0DA000000000001 /* VoiceFlowAudioBridge.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = VoiceFlowAudioBridge.m; path = VoiceFlow/VoiceFlowAudioBridge.m; sourceTree = "<group>"; };
 		0D643E53BB7B43ECB83F94BA /* VoiceFlow-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "VoiceFlow-Bridging-Header.h"; path = "VoiceFlow/VoiceFlow-Bridging-Header.h"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* VoiceFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VoiceFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FAF1A68108700A75B9A /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppDelegate.h; path = VoiceFlow/AppDelegate.h; sourceTree = "<group>"; };
@@ -61,6 +65,8 @@
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				07E3F788C90544458F00BE05 /* noop-file.swift */,
 				0D643E53BB7B43ECB83F94BA /* VoiceFlow-Bridging-Header.h */,
+				F11A0001B0DA000000000001 /* VoiceFlowAudio.swift */,
+				F11A0003B0DA000000000001 /* VoiceFlowAudioBridge.m */,
 				B6D1FB3929F63345298DE73A /* PrivacyInfo.xcprivacy */,
 			);
 			name = VoiceFlow;
@@ -321,6 +327,8 @@
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
 				557FAC770A6F42BABB6E1C65 /* noop-file.swift in Sources */,
+				F11A0002B0DA000000000001 /* VoiceFlowAudio.swift in Sources */,
+				F11A0004B0DA000000000001 /* VoiceFlowAudioBridge.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

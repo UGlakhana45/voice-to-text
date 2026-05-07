@@ -94,20 +94,31 @@ pnpm --filter mobile android
 pnpm --filter mobile ios
 ```
 
-The first launch downloads a quantized Whisper `base` model (~140 MB) and an optional Gemma-2B Q4 model (~1.5 GB) into the app's private storage. You can skip the LLM and use punctuation-only cleanup.
+If you pick **Cloud** mode in onboarding (the default), the app skips all model downloads and immediately starts using the backend `/ai/*` endpoints. **On-device** mode downloads a quantized Whisper `base` model (~140 MB) and optionally a Gemma-2B Q4 model (~1.5 GB) into the app's private storage.
 
-## ☁️ Cloud transcription (optional)
+### Platform support
 
-Switch from on-device Whisper to a cloud provider for higher accuracy:
+| Mode        | Android (`cloud`) | Android (`full`) | iOS                |
+| ----------- | ----------------- | ---------------- | ------------------ |
+| Cloud       | ✅                 | ✅                | ✅                  |
+| Hybrid      | (cloud-only fallback) | ✅              | (cloud-only fallback) |
+| On-device   | ❌                 | ✅                | 🚧 roadmap         |
 
-1. Open **Settings → Use OpenAI Cloud**
-2. Pick a provider:
-   - **Groq** — free tier, very fast (`whisper-large-v3-turbo`). Get a key at <https://console.groq.com/keys>.
-   - **OpenAI** — paid (`whisper-1`). Get a key at <https://platform.openai.com/api-keys>.
-3. Paste your API key → **Save**
-4. Tap the mic and speak — the audio is uploaded directly from device to the chosen provider.
+iOS ships the `VoiceFlowAudio` Swift module (`apps/mobile/ios/VoiceFlow/VoiceFlowAudio.swift`) for mic capture and uses the same `/ai/stt`, `/ai/translate`, `/ai/cleanup` proxy as Android cloud builds. Native whisper.cpp / llama.cpp bindings for iOS are tracked as a follow-up.
 
-Keys are persisted in the OS keystore. If a cloud call fails (network / quota), the app transparently falls back to on-device Whisper.
+## ☁️ Cloud transcription
+
+Cloud is the default mode and works out of the box if your server has at least one provider key configured (`OPENAI_API_KEY` or `GROQ_API_KEY`). Set `AI_PROXY_ENABLED=true`, `AI_STT_PROVIDER=groq|openai`, and `AI_LLM_PROVIDER=groq|openai` in the server's environment.
+
+The mobile app calls these proxy endpoints with the user's JWT — no API keys live on the device:
+
+- `POST /ai/stt` — speech-to-text (multipart audio upload)
+- `POST /ai/translate` — text → any target language
+- `POST /ai/cleanup` — punctuation, grammar, tone polish
+
+Power users can switch **Settings → Routing → Direct** to bypass the proxy and use their own OpenAI / Groq key (stored in the OS keystore).
+
+In **Hybrid** mode, cloud failures fall back to on-device Whisper (Android `full` build only).
 
 ## ⌨️ Voice commands
 

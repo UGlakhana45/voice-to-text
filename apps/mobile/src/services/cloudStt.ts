@@ -159,6 +159,16 @@ class CloudSttService {
     options?: CloudSttOptions,
   ): Promise<string> {
     const fileUri = await this.writePcmToWavFile(samples, sampleRate);
+    return this.transcribeWavFile(fileUri, options);
+  }
+
+  /**
+   * Upload an existing WAV file to the configured STT path. Use this when the
+   * native audio recorder already produced a WAV file (`AudioRecorder.start({
+   * recordToFile: true })`) — it skips the JS-side PCM accumulation and base64
+   * round-trip entirely, which is important for long recordings.
+   */
+  async transcribeWavFile(fileUri: string, options?: CloudSttOptions): Promise<string> {
     const route = await this.getRoute();
     if (route === 'proxy') return this.transcribeViaProxy(fileUri, options);
     return this.transcribeDirect(fileUri, options);

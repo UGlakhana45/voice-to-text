@@ -45,7 +45,7 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>Allow VoiceFlow to access the microphone.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>VoiceFlow performs speech recognition on-device.</string>
+    <string>VoiceFlow transcribes your speech, either on-device or via your selected cloud provider.</string>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>

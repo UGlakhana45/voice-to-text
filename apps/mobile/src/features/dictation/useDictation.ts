@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { useCallback } from 'react';
+import * as FileSystem from 'expo-file-system';
 import { Whisper } from '../../native/Whisper';
 import { Llm } from '../../native/Llm';
 import { AudioRecorder, AudioEvents, type AudioFrameEvent } from '../../native/AudioRecorder';
@@ -41,6 +42,39 @@ interface DictationStore {
   reset: () => void;
 }
 
+/**
+ * Live audio metering, kept in its own store so the waveform UI can subscribe
+ * at high frequency without re-rendering the rest of the screen.
+ */
+interface MeterStore {
+  /** Recent RMS values, oldest first. Capped at WAVEFORM_BARS samples. */
+  levels: number[];
+  /** Wall-clock time of the most recent `frame` event, used to fade old bars. */
+  updatedAt: number;
+  pushLevel: (rms: number) => void;
+  reset: () => void;
+}
+
+export const WAVEFORM_BARS = 28;
+
+export const useMeter = create<MeterStore>((set) => ({
+  levels: [],
+  updatedAt: 0,
+  pushLevel: (rms) =>
+    set((s) => {
+      const next = s.levels.length >= WAVEFORM_BARS
+        ? s.levels.slice(1)
+        : s.levels.slice();
+      next.push(rms);
+      return { levels: next, updatedAt: Date.now() };
+    }),
+  reset: () => set({ levels: [], updatedAt: 0 }),
+}));
+
+function publishLevel(rms: number) {
+  useMeter.getState().pushLevel(rms);
+}
+
 const useStore = create<DictationStore>((set) => ({
   state: 'idle',
   transcript: '',
@@ -59,7 +93,15 @@ const useStore = create<DictationStore>((set) => ({
 let chunker: Chunker | null = null;
 let frameSub: { remove: () => void } | null = null;
 let recordStartedAt = 0;
+/**
+ * Holds Float32 PCM frames during recording in **on-device mode only**. In
+ * cloud / hybrid mode the native audio module streams the WAV directly to a
+ * temp file (see `AudioRecorder.start({recordToFile:true})`), so this stays
+ * empty and we no longer risk OOM on long recordings.
+ */
 let audioBuffers: Float32Array[] = [];
+/** WAV file URI returned by the native recorder when `recordToFile` was used. */
+let lastWavFileUri: string | null = null;
 let lastVoiceAt = 0;
 let silenceTimer: ReturnType<typeof setInterval> | null = null;
 let stopRequested = false;
@@ -87,23 +129,50 @@ function concatBuffers(buffers: Float32Array[]): Float32Array {
 
 async function transcribeLocal(prompt: string): Promise<string> {
   await ensureWhisperLoaded();
-  if (!chunker) return '';
-  const final = chunker.flush();
-  if (final.samples.length === 0) return useStore.getState().transcript;
-  const res = await Whisper.transcribePcm(Array.from(final.samples), {
+  // On-device mode: drain the streaming Chunker for the tail samples.
+  if (chunker) {
+    const final = chunker.flush();
+    if (final.samples.length === 0) return useStore.getState().transcript;
+    const res = await Whisper.transcribePcm(Array.from(final.samples), {
+      language: 'auto',
+      initialPrompt: prompt || undefined,
+    });
+    return (useStore.getState().transcript + ' ' + res.text).trim();
+  }
+  // Hybrid-mode fallback: no chunker, but we kept the PCM buffers for exactly
+  // this case. Transcribe the whole recording in one Whisper call.
+  const combined = concatBuffers(audioBuffers);
+  if (combined.length === 0) return useStore.getState().transcript;
+  const res = await Whisper.transcribePcm(Array.from(combined), {
     language: 'auto',
     initialPrompt: prompt || undefined,
   });
-  return (useStore.getState().transcript + ' ' + res.text).trim();
+  return res.text.trim();
 }
 
 async function transcribeCloud(prompt: string): Promise<string> {
+  // Preferred path: the native recorder streamed PCM straight to a WAV file,
+  // so we just upload the file URI without round-tripping audio through JS.
+  if (lastWavFileUri) {
+    return cloudStt.transcribeWavFile(lastWavFileUri, { language: 'en', prompt });
+  }
+  // Fallback for the unusual case where no WAV file was produced (e.g. native
+  // module out of sync). Reconstructs the upload from JS buffers.
   const combined = concatBuffers(audioBuffers);
   if (combined.length === 0) throw new Error('No audio recorded');
-  return cloudStt.transcribePcm(combined, SAMPLE_RATE, {
-    language: 'en',
-    prompt,
-  });
+  return cloudStt.transcribePcm(combined, SAMPLE_RATE, { language: 'en', prompt });
+}
+
+/** Best-effort cleanup of the temp WAV file produced by the native recorder. */
+async function cleanupRecording(): Promise<void> {
+  const uri = lastWavFileUri;
+  lastWavFileUri = null;
+  if (!uri) return;
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true });
+  } catch (e) {
+    console.warn('[dictation] failed to delete temp WAV:', e);
+  }
 }
 
 export function useDictation() {
@@ -124,9 +193,11 @@ export function useDictation() {
       silenceTimer = null;
     }
     try {
-      await AudioRecorder.stop();
+      const stopResult = await AudioRecorder.stop();
+      lastWavFileUri = stopResult.fileUri;
     } catch {
       /* recorder already stopped */
+      lastWavFileUri = null;
     }
     frameSub?.remove();
     frameSub = null;
@@ -151,11 +222,13 @@ export function useDictation() {
       setError(String(err));
       audioBuffers = [];
       chunker = null;
+      void cleanupRecording();
       return;
     }
 
     audioBuffers = [];
     chunker = null;
+    void cleanupRecording();
 
     if (finalText) {
       const ops = parseCommands(finalText);
@@ -204,26 +277,38 @@ export function useDictation() {
     try {
       stopRequested = false;
       useStore.getState().reset();
+      useMeter.getState().reset();
       audioBuffers = [];
+      lastWavFileUri = null;
       lastVoiceAt = Date.now();
 
-      const useCloud = await cloudStt.isCloudEnabled();
-      if (!useCloud) await ensureWhisperLoaded();
+      const mode = (await cloudStt.getMode()) ?? 'cloud';
+      const useCloud = mode !== 'on-device';
+      // Keep PCM in JS only when we might need to feed it to on-device Whisper:
+      //  - 'on-device' : always
+      //  - 'hybrid'    : as a fallback if the cloud call fails
+      //  - 'cloud'     : never (file is already on disk via native recorder)
+      const keepInMemoryPcm = mode !== 'cloud';
+      if (mode !== 'cloud') await ensureWhisperLoaded();
 
       setState('recording');
-      chunker = new Chunker();
+      chunker = mode === 'on-device' ? new Chunker() : null;
       const initialPrompt = buildInitialPrompt(userDataActions.hotwords());
 
       frameSub = AudioEvents.addListener('frame', (e: AudioFrameEvent) => {
-        if (!chunker) return;
         const samples = Float32Array.from(e.samples);
-        audioBuffers.push(samples);
 
-        if (rms(samples) >= SILENCE_RMS_THRESHOLD) {
-          lastVoiceAt = Date.now();
+        // VAD on every frame, regardless of mode.
+        const level = rms(samples);
+        if (level >= SILENCE_RMS_THRESHOLD) lastVoiceAt = Date.now();
+        publishLevel(level);
+
+        if (keepInMemoryPcm) {
+          audioBuffers.push(samples);
         }
 
-        if (!useCloud) {
+        if (mode === 'on-device' && chunker) {
+          // Stream live partial transcripts via on-device Whisper.
           const chunks = chunker.push(samples);
           for (const c of chunks) {
             void Whisper.transcribePcm(Array.from(c.samples), {
@@ -247,7 +332,9 @@ export function useDictation() {
       }, 250);
 
       recordStartedAt = Date.now();
-      await AudioRecorder.start();
+      // Cloud / hybrid → native recorder also writes a WAV to disk so we can
+      // upload the file directly without ever building a base64 in JS.
+      await AudioRecorder.start({ recordToFile: useCloud });
     } catch (err) {
       setError(String(err));
     }

@@ -84,8 +84,22 @@ export function OnboardingWizard({ onDone }: Props) {
     }
   }, []);
 
+  const stepIndex = step === 'welcome' ? 0 : step === 'mode' ? 1 : step === 'mic' ? 2 : 3;
+
   return (
     <View style={styles.container}>
+      <View style={styles.dotsRow}>
+        {[0, 1, 2, 3].map((i) => (
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              i === stepIndex && styles.dotActive,
+              i < stepIndex && styles.dotDone,
+            ]}
+          />
+        ))}
+      </View>
       <View style={styles.body}>
         {step === 'welcome' ? (
           <>
@@ -207,6 +221,20 @@ export function useOnboardingDone(): { done: boolean | null; markDone: () => Pro
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.bg, justifyContent: 'space-between', padding: 24 },
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: theme.colors.border,
+  },
+  dotActive: { backgroundColor: theme.colors.accent, width: 22 },
+  dotDone: { backgroundColor: theme.colors.accentDim },
   body: { flex: 1, justifyContent: 'center' },
   eyebrow: { color: theme.colors.accent, fontSize: 13, fontWeight: '700', letterSpacing: 1.5, textTransform: 'uppercase' },
   title: { color: theme.colors.text, fontSize: 28, fontWeight: '700', marginTop: 12 },
