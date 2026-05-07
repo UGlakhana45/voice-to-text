@@ -3,9 +3,13 @@ import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useDictation } from '../features/dictation/useDictation';
 import { theme } from '../theme';
 
+const TARGET_LANGUAGES = ['Off', 'English', 'Spanish', 'French', 'German', 'Hindi', 'Japanese'] as const;
+type TargetLanguage = (typeof TARGET_LANGUAGES)[number];
+
 export function HomeScreen() {
-  const { state, transcript, cleaned, errorMessage, start, stop, polish } = useDictation();
+  const { state, transcript, cleaned, errorMessage, start, stop, polish, translate } = useDictation();
   const [showCleaned, setShowCleaned] = useState(false);
+  const [targetLang, setTargetLang] = useState<TargetLanguage>('Off');
 
   const onPressMic = useCallback(() => {
     if (state === 'recording') void stop();
@@ -16,6 +20,29 @@ export function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.langStrip}
+        contentContainerStyle={styles.langStripContent}
+      >
+        <Text style={styles.langStripLabel}>Translate to</Text>
+        {TARGET_LANGUAGES.map((lang) => {
+          const active = lang === targetLang;
+          return (
+            <Pressable
+              key={lang}
+              onPress={() => setTargetLang(lang)}
+              style={[styles.langChip, active && styles.langChipActive]}
+            >
+              <Text style={[styles.langChipText, active && styles.langChipTextActive]}>
+                {lang}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <ScrollView style={styles.transcriptArea} contentContainerStyle={styles.transcriptContent}>
         {cleaned ? (
           <View style={styles.toggleRow}>
@@ -41,15 +68,28 @@ export function HomeScreen() {
       <View style={styles.controls}>
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
         {transcript ? (
-          <Pressable
-            style={styles.secondary}
-            onPress={async () => {
-              await polish();
-              setShowCleaned(true);
-            }}
-          >
-            <Text style={styles.secondaryText}>Polish</Text>
-          </Pressable>
+          <View style={styles.actionRow}>
+            <Pressable
+              style={styles.secondary}
+              onPress={async () => {
+                await polish();
+                setShowCleaned(true);
+              }}
+            >
+              <Text style={styles.secondaryText}>Polish</Text>
+            </Pressable>
+            {targetLang !== 'Off' ? (
+              <Pressable
+                style={styles.secondary}
+                onPress={async () => {
+                  await translate(targetLang);
+                  setShowCleaned(true);
+                }}
+              >
+                <Text style={styles.secondaryText}>Translate → {targetLang}</Text>
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
 
         <Pressable
@@ -120,4 +160,36 @@ const styles = StyleSheet.create({
   toggleBtnActive: { backgroundColor: theme.colors.accent },
   toggleText: { color: theme.colors.textDim, fontSize: 13, fontWeight: '600' },
   toggleTextActive: { color: 'white' },
+  langStrip: {
+    flexGrow: 0,
+    backgroundColor: theme.colors.bg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
+  },
+  langStripContent: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    gap: 6,
+  },
+  langStripLabel: {
+    color: theme.colors.textDim,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginRight: 6,
+  },
+  langChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  langChipActive: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
+  langChipText: { color: theme.colors.textDim, fontSize: 13 },
+  langChipTextActive: { color: 'white', fontWeight: '600' },
+  actionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' },
 });

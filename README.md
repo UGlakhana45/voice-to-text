@@ -2,9 +2,9 @@
 
 # 🎙️ VoiceFlow
 
-**Privacy-first, offline-capable speech-to-text with optional cloud accuracy.**
+**Pick your trade-off: a tiny cloud app or a fully offline on-device one.**
 
-On-device Whisper transcription, optional Groq / OpenAI cloud STT, voice-activity auto-stop, AI-powered cleanup, and system-wide dictation for Android.
+Choose at first launch between **Cloud** (smallest install, best accuracy, multilingual translation), **On-device** (offline whisper.cpp + Gemma, audio never leaves the phone), or **Hybrid** (cloud first, on-device fallback). Voice-activity auto-stop, AI-powered cleanup, and system-wide dictation on Android.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Android%20%7C%20iOS-lightgrey)](#)
@@ -17,11 +17,14 @@ On-device Whisper transcription, optional Groq / OpenAI cloud STT, voice-activit
 ## ✨ Features
 
 - 🎤 **Push-to-talk dictation** with auto-stop after 3 s of silence
-- 🧠 **On-device Whisper** (`whisper.cpp`) — works fully offline, no data leaves the phone
-- ☁️ **Optional cloud STT** — Groq (free, fast) or OpenAI Whisper (paid, accurate) for higher-quality transcription
-- ✍️ **AI cleanup** — local Gemma-2B / Phi-3-mini via `llama.cpp` for punctuation, grammar and tone polish
+- � **Pick your mode** — `cloud`, `on-device`, or `hybrid`, set during onboarding and changeable in Settings
+- ☁️ **Backend AI proxy** — `/ai/stt`, `/ai/translate`, `/ai/cleanup` so users don't need their own API key
+- 🌍 **Translation** — transcribe + translate to any target language via the proxy
+- 🧠 **On-device Whisper** (`whisper.cpp`) — bundled in the `full` build, works fully offline
+- ✍️ **AI cleanup** — cloud (`gpt-4o-mini` / Llama-3.1) or local Gemma-2B via `llama.cpp` for punctuation, grammar and tone polish
+- 📦 **Two APK flavors** — `cloud` (~10 MB, no JNI) and `full` (~80 MB with the on-device engines)
 - 🗂️ **History sync** — Fastify + PostgreSQL backend with offline outbox
-- 🔐 **Secure storage** — API keys kept in the OS keystore via `expo-secure-store`
+- 🔐 **Secure storage** — API keys and mode preference kept in the OS keystore via `expo-secure-store`
 - ⌨️ **System keyboard (Android)** — dictate into any app
 
 ## 🏗️ Architecture
@@ -126,11 +129,29 @@ pnpm --filter mobile typecheck
 
 ## 📦 Building a release APK
 
+The Android module ships with two product flavors so you can pick the trade-off
+between install size and offline capability:
+
+| Flavor  | Includes whisper.cpp / llama.cpp | APK size (arm64) | Offline mode |
+|---------|----------------------------------|------------------|--------------|
+| `cloud` | ❌ no                            | ~10–15 MB        | ❌            |
+| `full`  | ✅ yes                            | ~80–100 MB       | ✅            |
+
 ```bash
 cd apps/mobile/android
-./gradlew :app:assembleRelease
-# Output: apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+
+# Smallest, cloud-only build (no JNI, recommended default):
+./gradlew :app:assembleCloudRelease
+# → app/build/outputs/apk/cloud/release/app-cloud-release.apk
+
+# Full build with on-device Whisper + Gemma:
+./gradlew :app:assembleFullRelease
+# → app/build/outputs/apk/full/release/app-full-release.apk
 ```
+
+The `cloud` flavor still lets the user paste their own OpenAI/Groq key in
+Settings (direct route). The `full` flavor adds the "on-device" and "hybrid"
+modes shown in the onboarding wizard.
 
 ## 🌐 Deployment
 

@@ -257,11 +257,22 @@ export function useDictation() {
     const raw = useStore.getState().transcript;
     if (!raw) return;
     const tone = useSettingsStore.getState().settings.defaultTone ?? 'neutral';
+    const useCloud = await cloudStt.isCloudEnabled();
     let out: string;
     try {
       setState('cleaning');
-      await ensureLlmLoaded();
-      out = await Llm.cleanup(raw, { tone });
+      if (useCloud) {
+        try {
+          out = await cloudStt.cleanup(raw, tone);
+        } catch (err) {
+          console.warn('[cloud-cleanup] failed, falling back to local LLM:', err);
+          await ensureLlmLoaded();
+          out = await Llm.cleanup(raw, { tone });
+        }
+      } else {
+        await ensureLlmLoaded();
+        out = await Llm.cleanup(raw, { tone });
+      }
     } catch {
       out = basicPunctuate(fallbackCleanup(raw));
     }
@@ -278,5 +289,37 @@ export function useDictation() {
     }
   }, [setState, setCleaned]);
 
-  return { state, transcript, cleaned, errorMessage, start, stop, polish };
+  /**
+   * Translate the current transcript into `targetLanguage` and store the
+   * result in `cleaned`. Always uses the cloud proxy — translation has no
+   * on-device equivalent in this app.
+   */
+  const translate = useCallback(
+    async (targetLanguage: string) => {
+      const raw = useStore.getState().transcript;
+      if (!raw) return;
+      const tone = useSettingsStore.getState().settings.defaultTone ?? 'neutral';
+      try {
+        setState('cleaning');
+        const out = await cloudStt.translate(raw, targetLanguage, tone);
+        setCleaned(out);
+
+        const id = useStore.getState().serverId;
+        if (id) {
+          try {
+            await historyActions.patch(id, { cleanedText: out, tone, language: targetLanguage });
+          } catch (e) {
+            console.warn('[dictation] PATCH translation failed:', e);
+          }
+        }
+      } catch (err) {
+        setError(String(err));
+        return;
+      }
+      setState('idle');
+    },
+    [setState, setCleaned, setError],
+  );
+
+  return { state, transcript, cleaned, errorMessage, start, stop, polish, translate };
 }

@@ -6,7 +6,7 @@ import { api, useAuth } from '../services/auth';
 import { TONES } from 'voiceflow-postprocess';
 import type { ToneMode } from 'voiceflow-shared-types';
 import { ModelManagerScreen } from './ModelManagerScreen';
-import { cloudStt, type CloudProvider } from '../services/cloudStt';
+import { cloudStt, type CloudProvider, type CloudRoute, type TranscriptionMode } from '../services/cloudStt';
 
 export function SettingsScreen() {
   const [view, setView] = useState<'root' | 'models'>('root');
@@ -19,11 +19,15 @@ export function SettingsScreen() {
   const [apiKey, setApiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [provider, setProvider] = useState<CloudProvider>('openai');
+  const [mode, setMode] = useState<TranscriptionMode>('cloud');
+  const [route, setRoute] = useState<CloudRoute>('proxy');
 
   useEffect(() => {
     cloudStt.isCloudEnabled().then(setCloudEnabled);
     cloudStt.getApiKey().then((k) => setApiKey(k ?? ''));
     cloudStt.getProvider().then(setProvider);
+    cloudStt.getMode().then((m) => setMode(m ?? 'cloud'));
+    cloudStt.getRoute().then(setRoute);
   }, []);
 
   if (view === 'models') {
@@ -65,57 +69,88 @@ export function SettingsScreen() {
       )}
 
       <Section title="Transcription">
-        <ToggleRow
-          label="Use OpenAI Cloud (better accuracy)"
-          value={cloudEnabled}
+        <PickerRow
+          label="Mode"
+          value={mode}
+          options={['cloud', 'hybrid', 'on-device']}
           onChange={async (v) => {
-            await cloudStt.setCloudEnabled(v);
-            setCloudEnabled(v);
+            const next = v as TranscriptionMode;
+            await cloudStt.setMode(next);
+            setMode(next);
+            setCloudEnabled(next !== 'on-device');
           }}
         />
+        <Text style={styles.helpText}>
+          {mode === 'cloud'
+            ? 'Cloud only — fastest and most accurate. Needs internet.'
+            : mode === 'on-device'
+            ? 'Fully offline. Whisper model runs on this phone.'
+            : 'Cloud when online, local Whisper as offline fallback.'}
+        </Text>
+
         {cloudEnabled && (
           <>
             <PickerRow
-              label="Provider"
-              value={provider}
-              options={['openai', 'groq']}
+              label="Routing"
+              value={route}
+              options={['proxy', 'direct']}
               onChange={async (v) => {
-                await cloudStt.setProvider(v as CloudProvider);
-                setProvider(v as CloudProvider);
+                const next = v as CloudRoute;
+                await cloudStt.setRoute(next);
+                setRoute(next);
               }}
             />
-          <View style={[styles.row, { flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingVertical: 12 }]}>
-            <Text style={styles.rowLabel}>{provider === 'groq' ? 'Groq API Key (free)' : 'OpenAI API Key'}</Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              <TextInput
-                style={apiKeyStyles.input}
-                value={apiKey}
-                onChangeText={setApiKey}
-                placeholder="sk-..."
-                placeholderTextColor={theme.colors.textDim}
-                secureTextEntry={!showKey}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <Pressable onPress={() => setShowKey(!showKey)} style={apiKeyStyles.eye}>
-                <Text style={{ color: theme.colors.accent }}>{showKey ? '🙈' : '👁️'}</Text>
-              </Pressable>
-            </View>
-            <Pressable
-              onPress={async () => {
-                await cloudStt.setApiKey(apiKey.trim());
-                Alert.alert('Saved', 'API key saved securely');
-              }}
-              style={apiKeyStyles.saveBtn}
-            >
-              <Text style={apiKeyStyles.saveText}>Save API Key</Text>
-            </Pressable>
-            <Text style={{ color: theme.colors.textDim, fontSize: 12, marginTop: 4 }}>
-              {provider === 'groq'
-                ? 'Get a FREE Groq key at console.groq.com/keys'
-                : 'Get an OpenAI key at platform.openai.com/api-keys'}
+            <Text style={styles.helpText}>
+              {route === 'proxy'
+                ? 'Calls VoiceFlow servers — no API key needed.'
+                : 'Calls OpenAI/Groq directly with your own API key.'}
             </Text>
-          </View>
+
+            {route === 'direct' && (
+              <>
+                <PickerRow
+                  label="Provider"
+                  value={provider}
+                  options={['openai', 'groq']}
+                  onChange={async (v) => {
+                    await cloudStt.setProvider(v as CloudProvider);
+                    setProvider(v as CloudProvider);
+                  }}
+                />
+                <View style={[styles.row, { flexDirection: 'column', alignItems: 'stretch', gap: 8, paddingVertical: 12 }]}>
+                  <Text style={styles.rowLabel}>{provider === 'groq' ? 'Groq API Key (free)' : 'OpenAI API Key'}</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TextInput
+                      style={apiKeyStyles.input}
+                      value={apiKey}
+                      onChangeText={setApiKey}
+                      placeholder="sk-..."
+                      placeholderTextColor={theme.colors.textDim}
+                      secureTextEntry={!showKey}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                    <Pressable onPress={() => setShowKey(!showKey)} style={apiKeyStyles.eye}>
+                      <Text style={{ color: theme.colors.accent }}>{showKey ? '🙈' : '👁️'}</Text>
+                    </Pressable>
+                  </View>
+                  <Pressable
+                    onPress={async () => {
+                      await cloudStt.setApiKey(apiKey.trim());
+                      Alert.alert('Saved', 'API key saved securely');
+                    }}
+                    style={apiKeyStyles.saveBtn}
+                  >
+                    <Text style={apiKeyStyles.saveText}>Save API Key</Text>
+                  </Pressable>
+                  <Text style={{ color: theme.colors.textDim, fontSize: 12, marginTop: 4 }}>
+                    {provider === 'groq'
+                      ? 'Get a FREE Groq key at console.groq.com/keys'
+                      : 'Get an OpenAI key at platform.openai.com/api-keys'}
+                  </Text>
+                </View>
+              </>
+            )}
           </>
         )}
         <Row label="Model size" value={settings.modelSize} />
@@ -325,6 +360,14 @@ const styles = StyleSheet.create({
   },
   rowLabel: { color: theme.colors.text, fontSize: 15 },
   rowValue: { color: theme.colors.textDim, fontSize: 14 },
+  helpText: {
+    color: theme.colors.textDim,
+    fontSize: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    paddingTop: 2,
+    lineHeight: 17,
+  },
   signOut: {
     marginTop: 8,
     paddingVertical: 14,

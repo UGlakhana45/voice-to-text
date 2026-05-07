@@ -14,12 +14,14 @@ import { AuthGate } from './features/auth/AuthGate';
 import { useUserData } from './features/userdata/useUserData';
 import { attachOutboxAutoFlush } from './services/outbox';
 import { startTelemetry } from './services/telemetry';
+import { cloudStt, type TranscriptionMode } from './services/cloudStt';
 import { theme } from './theme';
 
 const Tabs = createBottomTabNavigator();
 
 export default function App() {
   const [modelsReady, setModelsReady] = useState(false);
+  const [mode, setMode] = useState<TranscriptionMode | null | 'loading'>('loading');
   const { done: onboardingDone, markDone } = useOnboardingDone();
 
   // Side-effects that should run once for the app lifetime.
@@ -29,13 +31,29 @@ export default function App() {
     return detach;
   }, []);
 
+  // Re-read transcription mode whenever onboarding flips to done so we know
+  // whether we still need the model-download gate.
+  useEffect(() => {
+    if (!onboardingDone) return;
+    let cancelled = false;
+    void cloudStt.getMode().then((m) => {
+      if (!cancelled) setMode(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [onboardingDone]);
+
+  // Cloud and hybrid modes don't require any download up front.
+  const needsModelGate = mode === 'on-device';
+
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
       <AuthGate>
         {onboardingDone === null ? null : !onboardingDone ? (
           <OnboardingWizard onDone={() => void markDone()} />
-        ) : !modelsReady ? (
+        ) : mode === 'loading' ? null : needsModelGate && !modelsReady ? (
           <ModelDownloadGate onReady={() => setModelsReady(true)} />
         ) : (
           <MainTabs />

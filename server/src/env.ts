@@ -24,6 +24,18 @@ const schema = z.object({
   BILLING_ENABLED: z.coerce.boolean().default(false),
   TELEMETRY_ENABLED: z.coerce.boolean().default(false),
 
+  // --- AI proxy ---
+  // When set, /ai/* routes become available and proxy STT/translation/cleanup
+  // calls to the configured provider using a server-side key, so end users
+  // never need to bring their own.
+  AI_PROXY_ENABLED: z.coerce.boolean().default(false),
+  AI_STT_PROVIDER: z.enum(['openai', 'groq']).default('groq'),
+  AI_LLM_PROVIDER: z.enum(['openai', 'groq']).default('groq'),
+  OPENAI_API_KEY: z.string().optional(),
+  GROQ_API_KEY: z.string().optional(),
+  // Max audio bytes accepted by /ai/stt. Default ~20 MB.
+  AI_STT_MAX_BYTES: z.coerce.number().default(20 * 1024 * 1024),
+
   // OAuth (optional). Comma-separated client IDs to accept as `aud`.
   // When unset, signature + issuer are still verified but `aud` is not enforced.
   GOOGLE_CLIENT_IDS: z.string().optional(),

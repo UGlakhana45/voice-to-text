@@ -117,6 +117,34 @@ android {
         versionCode 1
         versionName "0.0.1"
     }
+
+    /**
+     * Product flavors that control which engines ship inside the APK:
+     *   - `cloud` : no whisper.cpp / llama.cpp `.so` files. Smallest APK.
+     *               Speech and translation always go through the backend
+     *               (or BYO-key direct mode). Mic capture still works.
+     *   - `full`  : ships the on-device Whisper + Gemma engines.
+     *               Lets the user run "on-device" or "hybrid" mode.
+     *
+     * The `voiceflow-native` library carries the same dimension so each app
+     * flavor pulls in its matching native library variant.
+     */
+    flavorDimensions "edition"
+    productFlavors {
+        cloud {
+            dimension "edition"
+            applicationIdSuffix ".cloud"
+            versionNameSuffix "-cloud"
+            buildConfigField "boolean", "HAS_ON_DEVICE_ENGINES", "false"
+        }
+        full {
+            dimension "edition"
+            buildConfigField "boolean", "HAS_ON_DEVICE_ENGINES", "true"
+        }
+    }
+    buildFeatures {
+        buildConfig true
+    }
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

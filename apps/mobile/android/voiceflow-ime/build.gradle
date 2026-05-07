@@ -8,6 +8,14 @@ android {
     minSdkVersion 23
     targetSdkVersion 34
   }
+  // Mirror the app's flavors so each app variant resolves to the matching
+  // IME variant, which in turn resolves to the matching voiceflow-native
+  // variant (cloud vs full).
+  flavorDimensions "edition"
+  productFlavors {
+    cloud { dimension "edition" }
+    full  { dimension "edition" }
+  }
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_17
     targetCompatibility JavaVersion.VERSION_17
